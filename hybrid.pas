@@ -1,4 +1,4 @@
-program retro;
+program retro_shit_by_ISO;
 
 {$mode objfpc}
 {$H+}
@@ -23,8 +23,7 @@ const
 
 
 type
-  PByteArray = ^TByteArray;
-{  TByteArray = array[0..SCREEN_SIZE-1] of Byte;}
+  PByteArray = ^TByteArray;
   TByteArray = array[0..65535] of Byte;
   
   _256k_ByteArray = ^Big_ByteArray;
@@ -76,7 +75,7 @@ begin
   samples_needed := len div 4;  // 2 channels * 2 bytes per sample
   buffer_int := PSmallInt(stream);
   
-  // libopenmpt renderöi suoraan int16-muodossa!
+  
   samples_rendered := openmpt_module_read_interleaved_stereo(
     openmpt_mod, 
     AUDIO_FREQ, 
@@ -84,7 +83,7 @@ begin
     PSingle(buffer_int)
   );
   
-  // Täytä loput nollilla jos tarvitaan --> jaa a....
+  
   if samples_rendered < samples_needed then
     FillChar(buffer_int[samples_rendered * 2], (samples_needed - samples_rendered) * 4, 0);
 end;
@@ -100,7 +99,7 @@ begin
   
   if not FileExists(filename) then
   begin
-    WriteLn('VIRHE: Musiikkitiedostoa ei löydy: ', filename);
+    WriteLn('Errori: Musa hukassa: ', filename);
     Exit;
   end;
   
@@ -121,14 +120,14 @@ begin
     
     if openmpt_mod = nil then
     begin
-      WriteLn('VIRHE: Moduulin lataus epäonnistui! Error: ', error);
+      WriteLn('Errori... taas: ', error);
       Exit;
     end;
     
     WriteLn('Moduuli ladattu: ', filename);
     WriteLn('Kesto: ', openmpt_module_get_duration_seconds(openmpt_mod):0:2, ' sek');
     
-    // Aseta looppaamaan
+    
     openmpt_module_set_repeat_count(openmpt_mod, -1);
     
   finally
@@ -153,7 +152,7 @@ begin
   // Aloita toisto
   SDL_PauseAudio(0);
   
-  WriteLn('Musiikki käynnistetty!');
+  WriteLn('....');
   WriteLn('');
   Result := True;
 end;
@@ -169,13 +168,13 @@ begin
   end;
 end;
 
-{ MIDAS-tyylinen synkronointifunktio }
+{Good old MIDAS stylez.. }
 procedure duo(duppos, durpos: integer);
 begin
   repeat
     current_order := openmpt_module_get_current_order(openmpt_mod);
     current_row := openmpt_module_get_current_row(openmpt_mod);
-    SDL_Delay(1);  // Pieni viive ettei CPU palaa
+    SDL_Delay(1);  
   until ((current_order) = duppos) and ((current_row) >= durpos);
 end;
 { --- Musa jutut loppuvat --- }
@@ -325,7 +324,7 @@ begin
   SDL_RenderPresent(renderer);
 end;
 
-{ --- Pixelöinti / Down sampling --- }
+{ --- Pixelöinti shitz... --- }
 procedure pixel_flip(src: PByteArray; block_size: integer);
 var
   x, y, bx, by: integer;
@@ -337,14 +336,14 @@ begin
   if SDL_LockTexture(texture, nil, @pixels, @pitch) = 0 then
   begin
     p32 := pixels;
-    { Käydään läpi ruutu block_size välein }
+    {  }
     for y := 0 to (199 div block_size) do
       for x := 0 to (319 div block_size) do
       begin
-        { Poimitaan yksi näyte pikseli blokin alusta }
+        {  }
         pixel := src^[(y * block_size * 320) + (x * block_size)];
         
-        { Täytetään block_size x block_size alue samalla värillä }
+        {  }
         for by := 0 to block_size - 1 do
           for bx := 0 to block_size - 1 do
             p32[((y * block_size + by) * 320) + (x * block_size + bx)] := palette[pixel];
@@ -417,12 +416,12 @@ begin
   begin
     for x := 0 to 79 do
     begin
-      { Poimitaan näyte 320x200 puskurista }
+      {  }
       pixel := src^[(y * 4 * 320) + (x * 4)];
 
       character := 219; { Oletus: täysblokki }
 
-      { Vanha kunnon dithering-logiikkasi }
+      { Vanha kunnon dithering }
       if use_dither then
       begin
         case (pixel mod 16) of
@@ -433,7 +432,7 @@ begin
         end;
       end;
 
-      { Piirretään 8x8 merkki 640x400 puskuriin }
+      { }
       for i := 0 to 7 do
       begin
         font_line := VGA_FONT_8x8[character, i];
@@ -459,7 +458,7 @@ begin
   if SDL_LockTexture(texture, nil, @pixels, @pitch) = 0 then
   begin
     p32 := pixels;
-    { Huom! Käydään läpi 640 * 400 = 256 000 pikseliä }
+    { Huom! }
     for i := 0 to 255999 do
       p32[i] := palette[src^[i]];
     SDL_UnlockTexture(texture);
@@ -475,23 +474,22 @@ end;
 procedure Make_Luutia_Demo_Palette;
 var
   i: Integer;
-begin
-  // Luodaan yksinkertainen gradientti-paletti
+begin
   for i := 0 to 63 do
   begin
-    pal(i, 0, 0, i * 4);           // Sininen gradientti
+    pal(i, 0, 0, i * 4);           
   end;
   for i := 64 to 127 do
   begin
-    pal(i, (i - 64) * 4, 0, 255);  // Sinisestä purppuraan
+    pal(i, (i - 64) * 4, 0, 255); 
   end;
   for i := 128 to 191 do
   begin
-    pal(i, 255, (i - 128) * 4, 255 - (i - 128) * 4); // Purppurasta punaiseen
+    pal(i, 255, (i - 128) * 4, 255 - (i - 128) * 4); 
   end;
   for i := 192 to 255 do
   begin
-    pal(i, 255, (i - 192) * 4, 0); // Punaisesta keltaiseen
+    pal(i, 255, (i - 192) * 4, 0);
   end;
 end;
 
@@ -520,11 +518,11 @@ begin
   GetMem(txt_vs3, 256000);
   FillChar(txt_vs3^, 256000, 0);
   GetMem(txt_vs4, 256000);
-
+  FillChar(txt_vs4^, 256000, 0);
 
   Set_320x200c256;  { 13h mode }
 
-{  Set_640x400c256; } {  "textmode 80x50" }
+{  Set_640x400c256; } {  for "textmode 80x50" }
   
   InitMusic('music.xm'); { ----> Darn }  
   
@@ -620,7 +618,7 @@ end;
 { ------------------------------------------------------------------------- }
 
 
-  { EFEKTI 2 - Ruudukko }
+  { EFEKTI 2 }
   repeat
     for y := 0 to 199 do
       for x := 0 to 319 do
@@ -637,12 +635,9 @@ until ((current_order = 2) and (current_row >= 0)) or
       (SDL_GetKeyboardState(nil)[SDL_SCANCODE_ESCAPE] <> 0);
 
 
-{ ------------------------------------------------------------------------- }
-
-  // Luodaan demo-paletti
-  MakeDemoPalette;
+{ ------------------------------------------------------------------------- }
   
-  { EFEKTI 3 - Jotain muuta }
+  { EFEKTI 3 }
   repeat
     for y := 0 to 199 do
       for x := 0 to 319 do
