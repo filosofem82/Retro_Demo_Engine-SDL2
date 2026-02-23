@@ -1,4 +1,4 @@
-program retro_shit_by_ISO;
+program Retro_Demo_Engine_By_ISO;
 
 {$mode objfpc}
 {$H+}
@@ -23,7 +23,7 @@ const
 
 
 type
-  PByteArray = ^TByteArray;
+  PByteArray = ^TByteArray;
   TByteArray = array[0..65535] of Byte;
   
   _256k_ByteArray = ^Big_ByteArray;
@@ -50,13 +50,17 @@ var
   { ----------- }
   
   palette: array[0..255] of Cardinal;
-  pal1: array[0..767] of Byte;
+  pal1,pal2: array[0..767] of Byte;
   f1:file;
   paletti: Byte;
   x,y,z: word;
   a,b,c,d,e,f:word;
   q,w:word; 
   tdist,tangle:byte;
+  sintable, costable: array[0..255] of Integer;
+  si1: array[0..255] of Byte;
+  sini_kekkonen16:array[0..255] of byte;
+  urho2:word;
   
   
 { --- SDL2 Audio Callback --- }
@@ -99,7 +103,7 @@ begin
   
   if not FileExists(filename) then
   begin
-    WriteLn('Errori: Musa hukassa: ', filename);
+    WriteLn('Ei löydy musa tiedostoa... ', filename);
     Exit;
   end;
   
@@ -120,14 +124,14 @@ begin
     
     if openmpt_mod = nil then
     begin
-      WriteLn('Errori... taas: ', error);
+      WriteLn('Oho... Moduulin lataus epäonnistui! ', error);
       Exit;
     end;
-    
+  (*  
     WriteLn('Moduuli ladattu: ', filename);
     WriteLn('Kesto: ', openmpt_module_get_duration_seconds(openmpt_mod):0:2, ' sek');
-    
-    
+  *) 
+    // Aseta looppaamaan
     openmpt_module_set_repeat_count(openmpt_mod, -1);
     
   finally
@@ -145,14 +149,14 @@ begin
   
   if SDL_OpenAudio(@audio_spec, nil) < 0 then
   begin
-    WriteLn('VIRHE: SDL Audio ei aukea: ', SDL_GetError());
+    WriteLn('SDL Audio ei toimi: ', SDL_GetError());
     Exit;
   end;
   
   // Aloita toisto
   SDL_PauseAudio(0);
   
-  WriteLn('....');
+  WriteLn('Musa soi!');
   WriteLn('');
   Result := True;
 end;
@@ -168,7 +172,7 @@ begin
   end;
 end;
 
-{Good old MIDAS stylez.. }
+{ MIDAS-tyylinen synkronointifunktio }
 procedure duo(duppos, durpos: integer);
 begin
   repeat
@@ -194,6 +198,20 @@ begin
   end;
 end;
 
+procedure smooth256(src, dst: PByteArray);
+var
+  a,d:word;
+begin
+  for a:=0 to 65535 do 
+   begin
+   d:=0;
+   if (a>=256) then d:=d+src^[a-256];
+   if (a>0) then d:=d+src^[a-1];
+   if (a<65535) then d:=d+src^[a+1];
+   if (a<65280) then d:=d+src^[a+256];
+   dst^[a]:=d shr 2;
+  end;
+end;
 
 procedure delupdown(dst: PByteArray; how: word);
 var
@@ -224,6 +242,23 @@ begin
   for a := 0 to 63999 do
     if src^[a] <> vari then
       dst^[a] := src^[a];
+end;
+
+procedure overlay(src, dst: PByteArray);
+var
+  a: word;
+begin
+  for a := 0 to 63999 do
+    if dst^[a] = 0 then
+      dst^[a] := src^[a];
+end;
+
+procedure transship(src, dst: PByteArray);
+var
+  a: word;
+begin
+  for a := 0 to 63999 do
+    dst^[a] := (src^[a] + dst^[a]) shr 1; { div 2 }
 end;
 
 procedure cls(msg: PByteArray);
@@ -275,6 +310,7 @@ begin
   Close(f);
 end;
 
+{ --- Paletti jutut --- }
 procedure pal(c, r, g, b: Byte);
 begin
   palette[c] := (r shl 16) or (g shl 8) or b or $FF000000;
@@ -287,6 +323,51 @@ begin
   for i := 0 to 255 do
     pal(i, pal1[i*3], pal1[i*3+1], pal1[i*3+2]);
 end;
+
+procedure setpal_2;
+var
+  i: integer;
+begin
+  for i := 0 to 255 do
+    palette[i] := (pal1[i*3] shl 18) or     { R: 0-63 -> 0-255 }
+                  (pal1[i*3+1] shl 10) or   { G }
+                  (pal1[i*3+2] shl 2) or    { B }
+                  $FF000000;                { Alpha = 255 }
+end;
+
+{ Fade to black }
+procedure ftb(dl0: integer);
+var
+  pal2: array[0..767] of Byte;
+begin
+  Move(pal1, pal2, 768);
+  for a := 0 to 63 do
+  begin
+    for b := 0 to 767 do
+      if pal2[b] > 0 then Dec(pal2[b]);
+    for b := 0 to 255 do
+      pal(b, pal2[b*3], pal2[b*3+1], pal2[b*3+2]);
+    SDL_Delay(dl0);
+  end;
+end;
+
+{ Fade from black }
+procedure ffb(dl0: integer);
+var
+  pal2: array[0..767] of Byte;
+begin
+  FillChar(pal2, 768, 0);
+  for a := 0 to 63 do
+  begin
+    for b := 0 to 767 do
+      if pal2[b] < pal1[b] then Inc(pal2[b]);
+    for b := 0 to 255 do
+      pal(b, pal2[b*3], pal2[b*3+1], pal2[b*3+2]);
+    SDL_Delay(dl0);
+  end;
+end;
+
+{ ----------------------------------------- }
 
 { --- SDL Flipit --- }
 procedure flip_with_palette(src: PByteArray);
@@ -324,7 +405,9 @@ begin
   SDL_RenderPresent(renderer);
 end;
 
-{ --- Pixelöinti shitz... --- }
+{ ----------------------------------------------- }
+
+{ --- Pixelöinti / Down sampling --- }
 procedure pixel_flip(src: PByteArray; block_size: integer);
 var
   x, y, bx, by: integer;
@@ -336,14 +419,14 @@ begin
   if SDL_LockTexture(texture, nil, @pixels, @pitch) = 0 then
   begin
     p32 := pixels;
-    {  }
+    { Käydään läpi ruutu block_size välein }
     for y := 0 to (199 div block_size) do
       for x := 0 to (319 div block_size) do
       begin
-        {  }
+        { Poimitaan yksi näyte pikseli blokin alusta }
         pixel := src^[(y * block_size * 320) + (x * block_size)];
         
-        {  }
+        { Täytetään block_size x block_size alue samalla värillä }
         for by := 0 to block_size - 1 do
           for bx := 0 to block_size - 1 do
             p32[((y * block_size + by) * 320) + (x * block_size + bx)] := palette[pixel];
@@ -356,7 +439,8 @@ end;
 
 { ----------------------------------------------- }
 
-procedure retrace;
+procedure retrace; 
+{ Jos käytät tätä jostakin syystä niin aktivoi set_320x200 ja set_640x400 procedureissa tämä: } {renderer := SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);} 
 begin
   SDL_Delay(16);
 end;
@@ -367,12 +451,13 @@ procedure Set_320x200c256;
 begin
   if SDL_Init(SDL_INIT_VIDEO or SDL_INIT_AUDIO) <> 0 then Halt(1);
   
-  window := SDL_CreateWindow('Retro Demo with Music',
+  window := SDL_CreateWindow('ISO Retro Demo',
     SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
     SCREEN_W_320, SCREEN_H_200,
     SDL_WINDOW_SHOWN or SDL_WINDOW_FULLSCREEN_DESKTOP);
   
-  renderer := SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+  {renderer := SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);}
+  renderer := SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED or SDL_RENDERER_PRESENTVSYNC); { Korvaa pääkoodin retrace:n }
   SDL_RenderSetLogicalSize(renderer, SCREEN_W_320, SCREEN_H_200);
   
   texture := SDL_CreateTexture(renderer,
@@ -388,12 +473,13 @@ procedure Set_640x400c256;
 begin
   if SDL_Init(SDL_INIT_VIDEO or SDL_INIT_AUDIO) <> 0 then Halt(1);
   
-  window := SDL_CreateWindow('Retro Demo with Music',
+  window := SDL_CreateWindow('ISO Retro Demo',
     SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
     SCREEN_W_640, SCREEN_H_400,
     SDL_WINDOW_SHOWN or SDL_WINDOW_FULLSCREEN_DESKTOP);
   
-  renderer := SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+ { renderer := SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);}
+  renderer := SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED or SDL_RENDERER_PRESENTVSYNC); { Korvaa pääkoodin retrace:n }
   SDL_RenderSetLogicalSize(renderer, SCREEN_W_640, SCREEN_H_400);
   
   texture := SDL_CreateTexture(renderer,
@@ -404,6 +490,11 @@ begin
 end;
 
 { --- Textmode 80x50 jutut --- }
+
+procedure txt_cls(msg: PByteArray);
+begin
+  FillChar(msg^, 256000, 0);
+end;
 
 procedure txt_flip_80x50(src: PByteArray; dst: _256k_ByteArray; use_dither: boolean);
 var
@@ -416,12 +507,12 @@ begin
   begin
     for x := 0 to 79 do
     begin
-      {  }
+      { Poimitaan näyte 320x200 puskurista }
       pixel := src^[(y * 4 * 320) + (x * 4)];
 
       character := 219; { Oletus: täysblokki }
 
-      { Vanha kunnon dithering }
+      { Vanha kunnon dithering-logiikkasi }
       if use_dither then
       begin
         case (pixel mod 16) of
@@ -432,7 +523,7 @@ begin
         end;
       end;
 
-      { }
+      { Piirretään 8x8 merkki 640x400 puskuriin }
       for i := 0 to 7 do
       begin
         font_line := VGA_FONT_8x8[character, i];
@@ -458,7 +549,7 @@ begin
   if SDL_LockTexture(texture, nil, @pixels, @pitch) = 0 then
   begin
     p32 := pixels;
-    { Huom! }
+    { Huom! Käydään läpi 640 * 400 = 256 000 pikseliä }
     for i := 0 to 255999 do
       p32[i] := palette[src^[i]];
     SDL_UnlockTexture(texture);
@@ -474,25 +565,25 @@ end;
 procedure Make_Luutia_Demo_Palette;
 var
   i: Integer;
-begin
+begin
+  // Luodaan yksinkertainen gradientti-paletti
   for i := 0 to 63 do
   begin
-    pal(i, 0, 0, i * 4);           
+    pal(i, 0, 0, i * 4);           // Sininen gradientti
   end;
   for i := 64 to 127 do
   begin
-    pal(i, (i - 64) * 4, 0, 255); 
+    pal(i, (i - 64) * 4, 0, 255);  // Sinisestä purppuraan
   end;
   for i := 128 to 191 do
   begin
-    pal(i, 255, (i - 128) * 4, 255 - (i - 128) * 4); 
+    pal(i, 255, (i - 128) * 4, 255 - (i - 128) * 4); // Purppurasta punaiseen
   end;
   for i := 192 to 255 do
   begin
-    pal(i, 255, (i - 192) * 4, 0);
+    pal(i, 255, (i - 192) * 4, 0); // Punaisesta keltaiseen
   end;
 end;
-
 
 { --- Oujee! Biltema Motor Works = BMW --- }  
 begin
@@ -518,19 +609,62 @@ begin
   GetMem(txt_vs3, 256000);
   FillChar(txt_vs3^, 256000, 0);
   GetMem(txt_vs4, 256000);
-  FillChar(txt_vs4^, 256000, 0);
+
+{ ------------------------- }
 
   Set_320x200c256;  { 13h mode }
-
-{  Set_640x400c256; } {  for "textmode 80x50" }
-  
-  InitMusic('music.xm'); { ----> Darn }  
+{  Set_640x400c256; } {  "textmode 80x50" }
   
 
+  {--- Esilasketut Sini/kosi taulut --- }
+for a := 0 to 255 do
+ begin
+    sintable[a] := Round(128 + 127 * Sin(a * Pi / 128));
+    costable[a] := Round(128 + 127 * Cos(a * Pi / 128));
+ end;
 
-  { EFEKTI 1 - Oldschool tunnel efekti powered by: Filosoem82 / huano ISO 2026 }
+  for urho2 := 0 to 255 do begin { vaikka textmode plasmalle }
+    sini_kekkonen16[urho2] := round(7.5 + 7.5 * sin(urho2 * Pi / 128));
+    { 0 - 15}
+  end;
 
-{ tunnelin data tiedostojen lataus.}
+  
+  { --- Muza --- }
+  InitMusic('music.xm');
+  
+
+{ --- Hieno logo --- }
+pcx('logo.pcx',vs1,320,200);
+setpal;
+
+repeat
+    flip_with_palette(vs1);  { 13h flip with palette }
+
+    SDL_PollEvent(@event);
+    current_order := openmpt_module_get_current_order(openmpt_mod);
+    current_row := openmpt_module_get_current_row(openmpt_mod);    
+until ((current_order = 1) and (current_row >= 0)) or
+      (SDL_GetKeyboardState(nil)[SDL_SCANCODE_ESCAPE] <> 0);
+
+{ --------------- }
+
+pcx('luutia.pcx',vs1,320,200);
+setpal;
+
+repeat
+    flip_with_palette(vs1);  { 13h flip with palette }
+
+    SDL_PollEvent(@event);
+    current_order := openmpt_module_get_current_order(openmpt_mod);
+    current_row := openmpt_module_get_current_row(openmpt_mod);    
+until ((current_order = 2) and (current_row >= 0)) or
+      (SDL_GetKeyboardState(nil)[SDL_SCANCODE_ESCAPE] <> 0);
+
+{ --------------- }
+
+  { EFEKTI 1: Oldschool tunnel efekti powered by: Filosofem82 / huano ISO 2026 }
+
+{ --- Kummankin tunnelin data tiedostojen lataus samasta tiedostosta.  --- }
 Assign(f1, 'tunneli.dat');
 Reset(f1, 1);
 Blockread(f1, vs3^, 64000); // Ladataan aika samalla tavalla kuten turbo pascalissa.
@@ -539,7 +673,7 @@ Close(f1);
 
 
 (*
-{ tunnelin data tiedostojen lataus.}
+{ --- yksittäiaten tunnelin data tiedostojen lataus. --- }
 Assign(f1, 'pallo_d.dat');
 Reset(f1, 1);
 Blockread(f1, vs3^, 64000); 
@@ -595,30 +729,28 @@ for y:=0 to 199 do
 end;
 
     inc(c);
-    retrace;
+    {retrace;}
     {flip(vs1);}  { 13h flip ei palettia --> harmaa }
     smooth320(vs1,vs1);
     flip_with_palette(vs1);  { 13h flip with palette }
     
     { Textmode flipit. --> Molemmat pitää kutsua, että efekti toimii. }
-
-   { ------------------------ } 
-{    txt_flip_80x50(vs1, txt_vs1, true); { Dithering = Boolean }
-    flip_txt(txt_vs1);}
-   { ------------------------ } 
+    (*
+    txt_flip_80x50(vs1, txt_vs1, true); { Dithering = Boolean }
+    flip_txt(txt_vs1);
+    *)
     
     SDL_PollEvent(@event);
     
     current_order := openmpt_module_get_current_order(openmpt_mod);
     current_row := openmpt_module_get_current_row(openmpt_mod);
  { until (current_order = 1) and (current_row >= 0);}
- until ((current_order = 1) and (current_row >= 0)) or
+ until ((current_order = 3) and (current_row >= 0)) or
       (SDL_GetKeyboardState(nil)[SDL_SCANCODE_ESCAPE] <> 0);
 
-{ ------------------------------------------------------------------------- }
+{ --------------- }
 
-
-  { EFEKTI 2 }
+  { EFEKTI 2: Ruudukko }
   repeat
     for y := 0 to 199 do
       for x := 0 to 319 do
@@ -630,38 +762,75 @@ end;
     
     current_order := openmpt_module_get_current_order(openmpt_mod);
     current_row := openmpt_module_get_current_row(openmpt_mod);
-{  until (current_order = 2) and (current_row >= 0);}
-until ((current_order = 2) and (current_row >= 0)) or
+until ((current_order = 4) and (current_row >= 0)) or
       (SDL_GetKeyboardState(nil)[SDL_SCANCODE_ESCAPE] <> 0);
 
 
-{ ------------------------------------------------------------------------- }
+{ --------------- }
+
+  // Luodaan demo-paletti
+  Make_Luutia_Demo_Palette;
   
-  { EFEKTI 3 }
+  { EFEKTI 3: Jotain muuta }
   repeat
     for y := 0 to 199 do
       for x := 0 to 319 do
         vs1^[(y * 320) + x] := c + x + y;
     
     inc(c);
-    {flip(vs1);}
     flip_with_palette(vs1);
     SDL_PollEvent(@event);
     
     current_order := openmpt_module_get_current_order(openmpt_mod);
     current_row := openmpt_module_get_current_row(openmpt_mod);
-{  until (current_order = 3) and (current_row >= 0);}
-until ((current_order = 3) and (current_row >= 0)) or
+until ((current_order = 5) and (current_row >= 0)) or
       (SDL_GetKeyboardState(nil)[SDL_SCANCODE_ESCAPE] <> 0);
 
 
-{ ------------------------------------------------------------------------- }
+{ --------------- }
 
+  { EFEKTI 4: Plasma }
+  c := 0;
+  repeat
+    for y := 0 to 199 do
+      for x := 0 to 319 do
+        vs1^[y*320+x] := sintable[(x+c) and 255] + 
+                         sintable[(y+c) and 255];
+    
+    Inc(c);
+    {retrace;}
+    flip(vs1); { Harmaa flippi }
+    
+    SDL_PollEvent(@event);
+    current_order := openmpt_module_get_current_order(openmpt_mod);
+    current_row := openmpt_module_get_current_row(openmpt_mod);    
+until ((current_order = 6) and (current_row >= 0)) or
+      (SDL_GetKeyboardState(nil)[SDL_SCANCODE_ESCAPE] <> 0);
+ 
+{ --------------- }
 
-{ EFEKTI 4 JNE... }
+  { EFEKTI 5: Ympyräääää... }
+  c := 0;
+  repeat
+    cls(vs1);
+    for y := 0 to 199 do
+      for x := 0 to 319 do
+      begin
+        d := Round(Sqrt((x-160)*(x-160) + (y-100)*(y-100)));
+        vs1^[y*320+x] := sintable[(d + c) and 255];
+      end;
+    
+    Inc(c, 2);
+    {retrace;}
+    flip(vs1); { Harmaa flippi }
+ 
+    SDL_PollEvent(@event);
+    current_order := openmpt_module_get_current_order(openmpt_mod);
+    current_row := openmpt_module_get_current_row(openmpt_mod);    
+until ((current_order = 7) and (current_row >= 0)) or
+      (SDL_GetKeyboardState(nil)[SDL_SCANCODE_ESCAPE] <> 0);
 
-
-{ ------------------------------------------------------------------------- }
+{ --- TestiDemon paska loppui jo...höh.. --- }
 
   // Siivous
   CloseMusic;
