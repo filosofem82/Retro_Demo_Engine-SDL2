@@ -1,24 +1,20 @@
-Pascal Retro Demo Engine (SDL2 Hybrid)
-This is a Pascal-based demo engine that emulates the traditional Mode 13h (320x200 256 colors) and 80x50 text mode within a modern SDL2 environment.
+Pascal Retro Demo Engine
+------------------------
+
+Pascal-based demo engine that emulates the traditional Mode 13h (320x200 256 colors) and 80x50 text mode via SDL2.
 
 Requirements:
+------------
 Free Pascal (FPC)
 
 SDL2 (Development libraries and DLLs)
 
 libopenmpt (For music playback)
 
-Files:
-hybrid.pas: The main program file.
-
-vga_font.pas: VGA font bitmaps for text mode rendering.
-
-tunneli.dat: Precalculated data file for effects.
-
 Google:
-
-libopenmpt & SDL2
+------
+libopenmpt 0.8.4 dev, SDL2 for pascal 2.3 & sdl2 dll:s
 
 Compiling:
 
-fpc hybrid.pas
+Maybe...fpc hybrid.pas 
