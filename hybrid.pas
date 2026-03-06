@@ -1,4 +1,5 @@
 program Retro_Demo_Engine_By_ISO;
+{ By: Filosofem82 / Huano/ISO }
 
 {$mode objfpc}
 {$H+}
@@ -181,6 +182,20 @@ begin
     SDL_Delay(1);  
   until ((current_order) = duppos) and ((current_row) >= durpos);
 end;
+
+function HaeVU(kanava: integer): integer;
+var
+  vu: Single;
+begin
+  if openmpt_mod = nil then
+  begin
+    HaeVU := 0;
+    exit;
+  end;
+  vu := openmpt_module_get_current_channel_vu_mono(openmpt_mod, kanava);
+  { Skaalataan 0.0-1.0 --> 0-63 }
+  HaeVU := round(vu * 63);
+end;
 { --- Musa jutut loppuvat --- }
 
 procedure smooth320(src, dst: PByteArray);
@@ -324,7 +339,7 @@ begin
     pal(i, pal1[i*3], pal1[i*3+1], pal1[i*3+2]);
 end;
 
-procedure setpal_2;
+procedure setpal_test;
 var
   i: integer;
 begin
@@ -861,5 +876,6 @@ until ((current_order = 7) and (current_row >= 0)) or
   WriteLn('');
   WriteLn('This is real shit...');
 end.
+
 
 
