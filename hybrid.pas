@@ -466,6 +466,8 @@ procedure Set_320x200c256;
 begin
   if SDL_Init(SDL_INIT_VIDEO or SDL_INIT_AUDIO) <> 0 then Halt(1);
   
+  SDL_ShowCursor(SDL_DISABLE); { Piilottaa hiiren ruudulta. }
+  
   window := SDL_CreateWindow('ISO Retro Demo',
     SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
     SCREEN_W_320, SCREEN_H_200,
@@ -487,6 +489,8 @@ end;
 procedure Set_640x400c256;
 begin
   if SDL_Init(SDL_INIT_VIDEO or SDL_INIT_AUDIO) <> 0 then Halt(1);
+  
+  SDL_ShowCursor(SDL_DISABLE); { Piilottaa hiiren ruudulta. }
   
   window := SDL_CreateWindow('ISO Retro Demo',
     SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -876,6 +880,7 @@ until ((current_order = 7) and (current_row >= 0)) or
   WriteLn('');
   WriteLn('This is real shit...');
 end.
+
 
 
 
