@@ -1,5 +1,6 @@
 program Retro_Demo_Engine_By_ISO;
-{ By: Filosofem82 / Huano/ISO }
+
+{ By: Filosofem82 / Huano_ISO }
 
 {$mode objfpc}
 {$H+}
@@ -382,7 +383,89 @@ begin
   end;
 end;
 
-{ ----------------------------------------- }
+{ --- Oldschool --- }
+procedure putpixeli(dst: PByteArray; x, y: integer; c: byte);
+begin
+
+    {if (x >= 0) and (x < 320) and (y >= 0) and (y < 200) then}
+      dst^[(y * 320) + x] := c;
+end;
+
+procedure circle(seg: PByteArray; x_keski, y_keski, r: integer; vari: byte);
+var
+  x, y, d: integer;
+
+  { Sisäinen peocedure käyttää nyt tuota 'seg' parametria }
+  procedure putpixel_vs(x, y: integer; c: byte);
+  begin
+    if (x >= 0) and (x < 320) and (y >= 0) and (y < 200) then
+      seg^[(y * 320) + x] := c;
+  end;
+
+begin
+  x := 0;
+  y := r;
+  d := 3 - 2 * r;
+
+  while x <= y do
+  begin
+    putpixel_vs(x_keski + x, y_keski + y, vari);
+    putpixel_vs(x_keski - x, y_keski + y, vari);
+    putpixel_vs(x_keski + x, y_keski - y, vari);
+    putpixel_vs(x_keski - x, y_keski - y, vari);
+    putpixel_vs(x_keski + y, y_keski + x, vari);
+    putpixel_vs(x_keski - y, y_keski + x, vari);
+    putpixel_vs(x_keski + y, y_keski - x, vari);
+    putpixel_vs(x_keski - y, y_keski - x, vari);
+
+    if d < 0 then
+      d := d + 4 * x + 6
+    else
+    begin
+      d := d + 4 * (x - y) + 10;
+      dec(y);
+    end;
+    inc(x);
+  end;
+end;
+
+procedure Line(x1,y1,x2,y2:word; sg: PByteArray; col:byte);
+var
+  dx,dy:integer;
+  sx,sy:integer;
+  err,e2:integer;
+  {offset:longint;}
+begin
+  dx := abs(x2-x1);
+  dy := abs(y2-y1);
+
+  if x1 < x2 then sx := 1 else sx := -1;
+  if y1 < y2 then sy := 1 else sy := -1;
+
+  err := dx - dy;
+
+  while true do
+  begin
+    sg^[y1*320 + x1] := col;
+
+    if (x1=x2) and (y1=y2) then exit;
+
+    e2 := err shl 1;
+
+    if e2 > -dy then
+    begin
+      err := err - dy;
+      x1 := x1 + sx;
+    end;
+
+    if e2 < dx then
+    begin
+      err := err + dx;
+      y1 := y1 + sy;
+    end;
+  end;
+end;
+{ ------------------------ }
 
 { --- SDL Flipit --- }
 procedure flip_with_palette(src: PByteArray);
@@ -604,7 +687,7 @@ begin
   end;
 end;
 
-{ --- Oujee! Biltema Motor Works = BMW --- }  
+{ --- Oujee! Biltema MotorWorks = BMW --- }  
 begin
   GetMem(vs1, 65536);
   FillChar(vs1^, 65536, 0);
@@ -880,6 +963,7 @@ until ((current_order = 7) and (current_row >= 0)) or
   WriteLn('');
   WriteLn('This is real shit...');
 end.
+
 
 
 
