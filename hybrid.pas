@@ -593,7 +593,7 @@ end;
 
 { --- Textmode 80x50 jutut --- }
 
-procedure txt_cls(msg: PByteArray);
+procedure txt_cls(msg: _256k_ByteArray);
 begin
   FillChar(msg^, 256000, 0);
 end;
